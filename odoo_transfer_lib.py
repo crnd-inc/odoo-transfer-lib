@@ -179,7 +179,8 @@ class TransferModelMeta(type):
         if 'field_adapters' not in attrs:
             attrs['field_adapters'] = {}
 
-        # process attributes and find adapters, and add them to 'field_adapters' dict
+        # process attributes and find adapters,
+        # and add them to 'field_adapters' dict
         for key, val in attrs.items():
             if callable(val) and getattr(val, '__adapter_for__', None):
                 attrs['field_adapters'][val.__adapter_for__] = val
@@ -283,9 +284,74 @@ class Transfer(object):
         for model in auto_transfer_models:
             model.auto_transfer()
 
+    @property
+    def stat(self):
+        res = {'created': {}}
+        for model in self:
+            res['created'][model.model] = model.created_count
+        return res
+
 
 class TransferModel(object, metaclass = TransferModelMeta):
-    """ Abstract class to combine transfer logic for single model"""
+    """ Abstract class to combine transfer logic for single model
+
+        Subclass this class and define attributes that describe data-transfer
+        process
+
+        Following attributes available:
+
+            model - (required) model name to transfer
+                    (for example 'product.product')
+            model_from_name - name of model in source database
+                              (used only if src and dest models are different)
+            model_to_name - name of model in dest database
+                            (used only if src and dest models are different)
+            transfer_fields - list of fields to transfer
+            renamed_fields - dictionary with field renames
+                             name in src db -> name in dest db
+            field_adapters - dictionary with adapter functions for fields.
+                             use @adapter decorator instead
+            link_field - name of field that have to have same value in
+                         source and dest database
+            link_field_source - name of link field in source database
+                                (used only if link field is different
+                                 in source and dest database)
+            link_field_dest - name of link_field in destination database
+                              (used only if link field is different
+                               in source and dest database)
+            link_field_auto_generate - automaticaly generate link field.
+                                       if set to True, then custom link field
+                                       will be created automaticaly
+                                       useful for periodic updates
+            auto_transfer_enabled - Enable autotransfer of this model.
+                                    Models with this attribute set to True
+                                    will be automaticaly transfered when
+                                    Transfer.auto_transfer is called.
+                                    Other models, may will be used only
+                                    for recursive transfer of related records
+            auto_transfer_domain - Domain to filter records that
+                                   will be transfered by auto transfer
+
+        Simplest example:
+
+            from odoo_transfer_lib import Transfer, TransferModel
+            from odoo_rpc_client import Client
+
+            class TPartnerModel(TransferModel):
+                model = 'res.partner'
+
+                transfer_fields = ['name']
+                link_field = 'name'
+                auto_transfer_enabled = True
+                auto_transfer_domain = [('parent_id', '=', False)]
+
+            cl_from = Client(...)
+            cl_to = Client(...)
+
+            transfer = Transfer(cl_from, cl_to, simplified_checks=True)
+            transfer.auto_transfer()
+            print(transfer.stat['created'])
+    """
 
     # model names
     model = None
@@ -470,6 +536,14 @@ class TransferModel(object, metaclass = TransferModelMeta):
         """
 
         return self.cl_from[self.model_from_name]
+
+    @property
+    def created_ids(self):
+        return self._created_ids
+
+    @property
+    def created_count(self):
+        return len(self._created_ids)
 
     def get_search_domain(self, record):
         """ Should return domain to search record in destination database
@@ -742,7 +816,7 @@ class GenericO2MAdapter(GenericX2MAdapter):
 
         Usage::
 
-            adapter = GenericX2MAdapter('order_line')
+            adapter = GenericO2MAdapter('order_line')
     """
 
     def __init__(self, field, adapter_type='create', **kwargs):
@@ -754,7 +828,7 @@ class GenericM2MAdapter(GenericX2MAdapter):
 
         Usage::
 
-            adapter = GenericX2MAdapter('category_id')
+            adapter = GenericM2MAdapter('category_id')
     """
 
     def __init__(self, field, adapter_type='link', **kwargs):
