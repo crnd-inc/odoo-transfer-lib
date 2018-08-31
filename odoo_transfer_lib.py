@@ -1,6 +1,7 @@
 import datetime
 import collections
 
+from odoo_rpc_client.plugins import external_ids
 from odoo_rpc_client import Client
 from odoo_rpc_client.orm.record import Record, RecordList
 from odoo_rpc_client.orm.cache import empty_cache
@@ -321,7 +322,7 @@ class TransferModel(object, metaclass = TransferModelMeta):
                                in source and dest database)
             link_field_auto_generate - automaticaly generate link field.
                                        if set to True, then custom link field
-                                       will be created automaticaly
+                                       will be created automaticaly on dest db
                                        useful for periodic updates
             auto_transfer_enabled - Enable autotransfer of this model.
                                     Models with this attribute set to True
@@ -386,6 +387,7 @@ class TransferModel(object, metaclass = TransferModelMeta):
     auto_transfer_enabled = False
     auto_transfer_domain = None
     auto_transfer_priority = 10
+    auto_transfer_xmlids = False
 
     # TODO: add check if field to be written to dest is present there
 
@@ -403,7 +405,6 @@ class TransferModel(object, metaclass = TransferModelMeta):
 
         # Generate link field
         self._generate_link_field()
-
 
     def __new__(cls, *args, **kwargs):
         if cls.model is None:
@@ -633,7 +634,7 @@ class TransferModel(object, metaclass = TransferModelMeta):
         return res_id
 
     def get_or_create_dest_id(self, record:Record):
-        """ Get ID of destination record, if it had been transfered alredy
+        """ Get ID of destination record, if it had been transfered already
         """
         self.prepare_to_transfer(record)
         domain = self.get_search_domain(record)
@@ -667,14 +668,32 @@ class TransferModel(object, metaclass = TransferModelMeta):
                                          self.get_search_domain(record),
                                          dest_id)
 
+        if self.auto_transfer_xmlids:
+            xml_ids = self.cl_from.plugins.external_ids.get_for(record)
+            for xml_id in xml_ids:
+                if xml_id.module == '__export__' and xml_id.res_id != dest_id:
+                    # do not transfer export xmlids, because thye are based on
+                    # record ID, which may lead to troubles, when id in xmlid
+                    # is different then object's ID
+                    continue
+                self.cl_to['ir.model.data'].create({
+                    'model': self.model_to_name,
+                    'module': xml_id.module,
+                    'name': xml_id.name,
+                    'res_id': dest_id,
+                    'noupdate': xml_id.noupdate,
+                })
 
     def populate_cache(self, data=None):
         if data is None:
-            domain = self.populate_cache_domain if self.populate_cache_domain is not None else []
-            data = self.dest_model.search_records(domain,
-                                                  context={'active_test': self.auto_active_test},
-                                                  cache=self.cl_to_cache)
+            domain = []
+            if self.populate_cache_domain is not None:
+                domain = self.populate_cache_domain
 
+            data = self.dest_model.search_records(
+                domain,
+                context={'active_test': self.auto_active_test},
+                cache=self.cl_to_cache)
 
         self.get_only_one_id.populate_cache(self.cl_to,
                                             self.model_to_name,
@@ -693,7 +712,6 @@ class TransferModel(object, metaclass = TransferModelMeta):
         return self.source_model.search_records(self.auto_transfer_domain + [('id', 'not in', transfered_ids)],
                                                 context={'active_test': self.auto_active_test},
                                                 cache=self.cl_from_cache)
-
 
     def auto_transfer(self):
         if self.auto_transfer_enabled:
