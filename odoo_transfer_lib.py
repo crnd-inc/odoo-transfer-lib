@@ -7,6 +7,10 @@ from odoo_rpc_client.orm.record import Record, RecordList
 from odoo_rpc_client.orm.cache import empty_cache
 
 
+class TransferError(Exception):
+    pass
+
+
 def in_progress(seq, msg="Progress: [%(processed)d / %(total)d]",
                 length=None, close=True):
     """ Iterate over sequence, yielding item with progress widget displayed.
@@ -119,8 +123,11 @@ class GetOnlyOneID(object):
 
         # raise error if there more than 1 partner with same ref
         if len(res_ids) > 1:
-            raise "More then one record found:\n\tclient:%s\n\tmodel:%s\n\tdomain=%s\n" % (client.get_url(),
-                                                                                           model, domain)
+            raise TransferError(
+                "More then one record found:\n"
+                "\tclient:%s\n"
+                "\tmodel:%s\n"
+                "\tdomain=%s\n" % (client.get_url(), model, domain))
 
         # If ther only one partner in kb9 db, just return its ID
         if len(res_ids) == 1:
@@ -387,7 +394,7 @@ class TransferModel(object, metaclass = TransferModelMeta):
     auto_transfer_enabled = False
     auto_transfer_domain = None
     auto_transfer_priority = 10
-    auto_transfer_xmlids = False
+    auto_transfer_xmlids = False   # experimental feature
 
     # TODO: add check if field to be written to dest is present there
 
@@ -408,7 +415,8 @@ class TransferModel(object, metaclass = TransferModelMeta):
 
     def __new__(cls, *args, **kwargs):
         if cls.model is None:
-            raise "Cannot create instance when model is not specified"
+            raise TransferError(
+                "Cannot create instance when model is not specified")
         return super(TransferModel, cls).__new__(cls)
 
     def _generate_link_field(self, field='x_transfer_sync_id'):
@@ -483,7 +491,7 @@ class TransferModel(object, metaclass = TransferModelMeta):
             if field_to not in self.dest_model.columns_info:
                 bad_fields.append(field_to)
         if bad_fields:
-            raise Exception(
+            raise TransferError(
                 "ERROR! Following fields are not present in dest databse:\n"
                 "\tmodel: %s"
                 "\tfields: %s" % (self.dest_model, ', '.join(bad_fields))
