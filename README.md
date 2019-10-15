@@ -6,3 +6,108 @@ that are used underthe hood.
 
 At this moment this library tightly integrated with [Jupyter Notebook](http://jupyter.org/)
 and could be used only inside notebook.
+
+## Notes
+
+Currently it is required to run data-transfer from jupyter notebook.
+This is required to show progressbars. And it is not possible to run withour progress bars yet.
+
+It is recommended to use [openerp-proxy](https://github.com/katyukha/openerp-proxy) - it provides jupyter integration for *odoo-rpc-client*
+
+
+## Example product transfer configuration
+
+
+First we have to declare transfer configuration
+
+```python
+from odoo_ransfer_lib import TransferModel
+
+
+class TProductCategory(TransferModel):
+    model = 'product.category'
+    transfer_fields = ['name', 'type', 'parent_id']
+    auto_populate_cache = True
+
+    def get_search_domain(self, category):
+        domain = [('name', '=', category.name)]
+        level = 1
+        parent = category.parent_id
+        while parent:
+            parent_field = 'parent_id.' * level + 'name'
+            domain += [(parent_field, '=', parent.name)]
+            parent = parent.parent_id
+            level += 1
+        return domain
+
+
+class TProductUOMModel(TransferModel):
+    model = 'product.uom'
+    auto_populate_cache = True
+    link_field = 'name'
+
+
+class TProductModel(TransferModel):
+    model = 'product.product'
+    transfer_fields = [
+        'state',
+        'uom_po_id',
+        'uom_id',
+        'product_code',
+        'active',
+        'purchase_ok',
+        'categ_id',
+        'description',
+        'name',
+        'description_sale',
+        'volume',
+        'type',
+        'sale_ok',
+        'default_code',
+        'weight',
+        'valuation',
+    ]
+    link_field = 'default_code'
+
+    renamed_fields = {
+        'hr_expense_ok': 'can_be_expensed',
+    }
+    auto_populate_cache = True
+    populate_cache_domain = [('default_code', '!=', False)]
+
+    # auto_transfer_fields
+    auto_transfer_enabled = True
+    auto_transfer_domain = []
+    auto_transfer_priority = 10
+    # ---
+
+    def prepare_to_transfer(self, product):
+        super(TProductModel, self).prepare_to_transfer(product)
+        if not product.default_code:
+            default_code = "auto-code-%s" % product.id
+            product.write({'default_code': default_code})
+            # Update cache of product record
+            product._data['default_code'] = default_code
+```
+
+Next we can run data transfer
+
+```python
+# Import Client and Session classes
+from odoo_rpc_client import Client, Session
+
+# Connect to both databases
+cl_from = Client(host='localhost', port='10069', dbname='test-data-transfer', user='admin', pwd='admin')
+cl_to = Client(host='localhost', port='11169', dbname='test-data-transfer', user='admin', pwd='admin')
+
+# Ensure connected
+assert cl_to.uid
+assert cl_from.uid
+
+# Run transfer
+transfer = Transfer(cl_from, cl_to, simplified_checks=True)
+transfer.auto_transfer()
+
+# Print transfer statistics
+transfer.stat
+```
