@@ -14,6 +14,8 @@ This is required to show progressbars. And it is not possible to run withour pro
 
 It is recommended to use [openerp-proxy](https://github.com/katyukha/openerp-proxy) - it provides jupyter integration for *odoo-rpc-client*
 
+See [examples](./examples/) directory for more details.
+
 
 ## Example product transfer configuration
 
