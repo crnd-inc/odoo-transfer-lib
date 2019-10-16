@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright © 2016-2019 Center of Research & Development <info@crnd.pro>
+# Copyright © 2019 Center of Research & Development <info@crnd.pro>
 
 #######################################################################
 # This Source Code Form is subject to the terms of the Mozilla Public #
