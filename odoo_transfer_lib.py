@@ -1,9 +1,19 @@
+# Copyright © 2016-2019 Center of Research & Development <info@crnd.pro>
+
+#######################################################################
+# This Source Code Form is subject to the terms of the Mozilla Public #
+# License, v. 2.0. If a copy of the MPL was not distributed with this #
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.            #
+#######################################################################
+
 import datetime
 import collections
 
-from odoo_rpc_client.plugins import external_ids
+# pylint: disable=unused-import
+import odoo_rpc_client.plugins.external_ids  # noqa
+
 from odoo_rpc_client import Client
-from odoo_rpc_client.orm.record import Record, RecordList
+from odoo_rpc_client.orm.record import Record
 from odoo_rpc_client.orm.cache import empty_cache
 
 
