@@ -6,15 +6,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.            #
 #######################################################################
 
-import datetime
 import collections
-
-# pylint: disable=unused-import
-import odoo_rpc_client.plugins.external_ids  # noqa
+import datetime
 
 from odoo_rpc_client import Client
-from odoo_rpc_client.orm.record import Record
 from odoo_rpc_client.orm.cache import empty_cache
+from odoo_rpc_client.orm.record import Record
+
+
+# pylint: disable=unused-import
 
 
 class TransferError(Exception):
@@ -439,18 +439,19 @@ class TransferModel(object, metaclass = TransferModelMeta):
             # test if field already present in dest database
             cl = self.cl_to
             model = self.model_to_name
-            field_id = cl['ir.model.fields']([('model', '=', model),
-                                              ('name', '=', field)])
+            field_id = cl['ir.model.fields'].search([
+                ('model', '=', model), ('name', '=', field)])
             if not field_id:
-
                 field_id =cl['ir.model.fields'].create({
                     'name': field,
                     'ttype': 'integer',
                     'state': 'manual',
-                    'model_id': cl._ir_model(model=model)[0].id,
+                    'model_id': cl['ir.model'].search(
+                        [('model', '=', model)])[0],
                     'model': model,
                     'field_description': field.replace('_', ' '),
-                    'help': 'This field was created automaticaly during data transfer to reference data in original database',
+                    'help': 'This field was created automaticaly during data '
+                            'transfer to reference data in original database',
                 })
                 self.dest_model._columns_info = None  # clean columns cache
 
