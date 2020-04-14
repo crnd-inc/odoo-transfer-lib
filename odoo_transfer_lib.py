@@ -6,15 +6,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.            #
 #######################################################################
 
-import collections
 import datetime
-
-from odoo_rpc_client import Client
-from odoo_rpc_client.orm.cache import empty_cache
-from odoo_rpc_client.orm.record import Record
-
+import collections
 
 # pylint: disable=unused-import
+import odoo_rpc_client.plugins.external_ids  # noqa
+
+from odoo_rpc_client import Client
+from odoo_rpc_client.orm.record import Record
+from odoo_rpc_client.orm.cache import empty_cache
 
 
 class TransferError(Exception):
